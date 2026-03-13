@@ -1,19 +1,11 @@
 import {
   IsEmail,
-  IsEnum,
   IsNotEmpty,
-  IsOptional,
   IsString,
   MinLength,
   MaxLength,
   Matches,
 } from 'class-validator';
-
-export enum Role {
-  ADMIN = 'admin',
-  USER = 'user',
-  CLIENT = 'client',
-}
 
 export class RegisterDto {
   @IsEmail()
@@ -33,8 +25,4 @@ export class RegisterDto {
   @IsNotEmpty()
   @MaxLength(100)
   name: string;
-
-  @IsEnum(Role)
-  @IsOptional()
-  role?: Role;
 }

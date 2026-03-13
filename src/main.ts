@@ -7,20 +7,15 @@ import cookieParser from 'cookie-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Security: HTTP headers protection
   app.use(helmet());
-
-  // Security: Parse cookies (for HttpOnly JWT tokens)
   app.use(cookieParser());
 
-  // Security: CORS - restrict to frontend origin
   app.enableCors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true,
   });
 
-  // Security: Global validation pipe to sanitize/validate all input
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -29,7 +24,6 @@ async function bootstrap() {
     }),
   );
 
-  // Global API prefix
   app.setGlobalPrefix('api');
 
   await app.listen(5000);

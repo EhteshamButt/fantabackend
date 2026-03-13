@@ -2,13 +2,15 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
-  InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { SupabaseService } from '../supabase/supabase.service';
 import * as bcrypt from 'bcrypt';
-import { RegisterDto, Role } from './dto/register.dto';
+import { User, Role } from '../users/user.schema';
+import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { randomBytes } from 'crypto';
 
@@ -17,84 +19,59 @@ const SALT_ROUNDS = 12;
 @Injectable()
 export class AuthService {
   constructor(
-    private supabase: SupabaseService,
+    @InjectModel(User.name) private userModel: Model<User>,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
 
   async register(dto: RegisterDto) {
-    const db = this.supabase.getClient();
+    const email = dto.email.toLowerCase().trim();
 
-    // Check if user already exists
-    const { data: existing } = await db
-      .from('users')
-      .select('id')
-      .eq('email', dto.email.toLowerCase().trim())
-      .single();
-
+    const existing = await this.userModel.findOne({ email }).lean();
     if (existing) {
       throw new ConflictException('Email already registered');
     }
 
-    // Hash password with bcrypt
     const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
-    const { data: user, error } = await db
-      .from('users')
-      .insert({
-        email: dto.email.toLowerCase().trim(),
-        password: hashedPassword,
-        name: dto.name.trim(),
-        role: dto.role || Role.USER,
-      })
-      .select('id, email, name, role')
-      .single();
+    const user = await this.userModel.create({
+      email,
+      password: hashedPassword,
+      name: dto.name.trim(),
+      role: Role.USER,
+    });
 
-    if (error) {
-      throw new InternalServerErrorException('Failed to create user');
-    }
-
-    // Generate tokens
     const tokens = await this.generateTokens(user);
+    await this.storeRefreshToken(user._id.toString(), tokens.refreshToken);
 
-    // Store refresh token hash in DB
-    await this.storeRefreshToken(user.id, tokens.refreshToken);
-
-    return { user, ...tokens };
+    return {
+      user: { id: user._id, email: user.email, name: user.name, role: user.role },
+      ...tokens,
+    };
   }
 
   async login(dto: LoginDto) {
-    const db = this.supabase.getClient();
+    const email = dto.email.toLowerCase().trim();
 
-    const { data: user, error } = await db
-      .from('users')
-      .select('id, email, name, role, password')
-      .eq('email', dto.email.toLowerCase().trim())
-      .single();
+    const user = await this.userModel.findOne({ email });
 
-    // Use constant-time comparison approach: always hash even if user not found
     if (!user) {
-      // Prevent timing attacks — hash a dummy password
       await bcrypt.hash('dummy', SALT_ROUNDS);
       throw new UnauthorizedException('Invalid email or password');
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
-
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    // Generate tokens
     const tokens = await this.generateTokens(user);
+    await this.storeRefreshToken(user._id.toString(), tokens.refreshToken);
 
-    // Store refresh token hash
-    await this.storeRefreshToken(user.id, tokens.refreshToken);
-
-    // Strip password from response
-    const { password: _, ...safeUser } = user;
-
-    return { user: safeUser, ...tokens };
+    return {
+      user: { id: user._id, email: user.email, name: user.name, role: user.role },
+      ...tokens,
+    };
   }
 
   async refreshTokens(refreshToken: string) {
@@ -105,71 +82,90 @@ export class AuthService {
     let payload: any;
     try {
       payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get<string>('JWT_SECRET'),
+        secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
       });
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const db = this.supabase.getClient();
-    const { data: user } = await db
-      .from('users')
-      .select('id, email, name, role, refresh_token')
-      .eq('id', payload.sub)
-      .single();
+    const user = await this.userModel.findById(payload.sub);
 
     if (!user || !user.refresh_token) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    // Verify stored refresh token hash matches
     const isValid = await bcrypt.compare(refreshToken, user.refresh_token);
     if (!isValid) {
-      // Possible token theft — invalidate all sessions
-      await db.from('users').update({ refresh_token: null }).eq('id', user.id);
+      await this.userModel.findByIdAndUpdate(user._id, { refresh_token: null });
       throw new UnauthorizedException('Token reuse detected');
     }
 
     const tokens = await this.generateTokens(user);
-    await this.storeRefreshToken(user.id, tokens.refreshToken);
+    await this.storeRefreshToken(user._id.toString(), tokens.refreshToken);
 
-    const { refresh_token: _, ...safeUser } = user;
-
-    return { user: safeUser, ...tokens };
+    return {
+      user: { id: user._id, email: user.email, name: user.name, role: user.role },
+      ...tokens,
+    };
   }
 
   async logout(userId: string) {
-    const db = this.supabase.getClient();
-    await db.from('users').update({ refresh_token: null }).eq('id', userId);
+    await this.userModel.findByIdAndUpdate(userId, { refresh_token: null });
     return { message: 'Logged out successfully' };
   }
 
   async getProfile(userId: string) {
-    const db = this.supabase.getClient();
-    const { data: user } = await db
-      .from('users')
-      .select('id, email, name, role, created_at')
-      .eq('id', userId)
-      .single();
+    const user = await this.userModel
+      .findById(userId)
+      .select('email name role createdAt')
+      .lean();
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
+    return { id: user._id, ...user };
+  }
+
+  async getAllUsers() {
+    return this.userModel
+      .find()
+      .select('email name role createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+  }
+
+  async updateUserRole(userId: string, role: Role) {
+    const user = await this.userModel
+      .findByIdAndUpdate(userId, { role }, { new: true })
+      .select('email name role createdAt')
+      .lean();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
     return user;
   }
 
-  private async generateTokens(user: { id: string; email: string; role: string }) {
+  private async generateTokens(user: any) {
+    const id = user._id.toString();
     const jti = randomBytes(16).toString('hex');
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
-        { sub: user.id, email: user.email, role: user.role, jti },
-        { expiresIn: (this.configService.get<string>('JWT_EXPIRATION') || '15m') as any },
+        { sub: id, email: user.email, role: user.role, jti },
+        {
+          secret: this.configService.get<string>('ACCESS_TOKEN_SECRET'),
+          expiresIn: (this.configService.get<string>('JWT_EXPIRATION') || '15m') as any,
+        },
       ),
       this.jwtService.signAsync(
-        { sub: user.id, type: 'refresh' },
-        { expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRATION') || '7d') as any },
+        { sub: id, type: 'refresh' },
+        {
+          secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
+          expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRATION') || '7d') as any,
+        },
       ),
     ]);
 
@@ -178,10 +174,6 @@ export class AuthService {
 
   private async storeRefreshToken(userId: string, refreshToken: string) {
     const hashedToken = await bcrypt.hash(refreshToken, 10);
-    await this.supabase
-      .getClient()
-      .from('users')
-      .update({ refresh_token: hashedToken })
-      .eq('id', userId);
+    await this.userModel.findByIdAndUpdate(userId, { refresh_token: hashedToken });
   }
 }

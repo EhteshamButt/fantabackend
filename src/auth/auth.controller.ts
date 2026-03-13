@@ -2,7 +2,9 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
+  Param,
   Res,
   Req,
   UseGuards,
@@ -13,10 +15,11 @@ import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdateRoleDto } from './dto/update-role.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
-import { Role } from './dto/register.dto';
+import { Role } from '../users/user.schema';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -103,11 +106,17 @@ export class AuthController {
     return this.authService.getProfile(req.user.id);
   }
 
-  // Example: admin-only route
-  @Get('admin')
+  @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  adminOnly() {
-    return { message: 'Admin access granted' };
+  async getAllUsers() {
+    return this.authService.getAllUsers();
+  }
+
+  @Patch('users/:id/role')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async updateUserRole(@Param('id') id: string, @Body() dto: UpdateRoleDto) {
+    return this.authService.updateUserRole(id, dto.role);
   }
 }
