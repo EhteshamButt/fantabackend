@@ -1,9 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
-import { Payment, PaymentStatus } from './payment.schema';
+import { Payment, PaymentStatus } from './payment.entity';
 import { SubmitPaymentDto } from './dto/submit-payment.dto';
 import { Readable } from 'stream';
 
@@ -13,7 +13,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 @Injectable()
 export class PaymentsService {
   constructor(
-    @InjectModel(Payment.name) private paymentModel: Model<Payment>,
+    @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
     private configService: ConfigService,
   ) {
     cloudinary.config({
@@ -29,7 +29,6 @@ export class PaymentsService {
     dto: SubmitPaymentDto,
     file: Express.Multer.File,
   ) {
-    // Validate file
     if (!file) {
       throw new BadRequestException('Payment screenshot is required');
     }
@@ -42,11 +41,9 @@ export class PaymentsService {
       throw new BadRequestException('File size must be under 5MB');
     }
 
-    // Upload to Cloudinary via server-side signed upload (secret never exposed)
     const uploadResult = await this.uploadToCloudinary(file);
 
-    // Save payment record
-    const payment = await this.paymentModel.create({
+    const payment = this.paymentRepo.create({
       userId,
       packageId: dto.packageId,
       packageName: dto.packageName,
@@ -57,22 +54,23 @@ export class PaymentsService {
       screenshotPublicId: uploadResult.public_id,
       status: PaymentStatus.PENDING,
     });
+    await this.paymentRepo.save(payment);
 
     return {
-      id: payment._id,
+      id: payment.id,
       packageName: payment.packageName,
       amount: payment.amount,
       status: payment.status,
-      createdAt: (payment as any).createdAt,
+      createdAt: payment.createdAt,
     };
   }
 
   async getUserPayments(userId: string) {
-    return this.paymentModel
-      .find({ userId })
-      .select('packageId packageName amount trxId senderNumber screenshotUrl status createdAt')
-      .sort({ createdAt: -1 })
-      .lean();
+    return this.paymentRepo.find({
+      where: { userId },
+      select: ['id', 'packageId', 'packageName', 'amount', 'trxId', 'senderNumber', 'screenshotUrl', 'status', 'createdAt'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   private uploadToCloudinary(file: Express.Multer.File): Promise<UploadApiResponse> {

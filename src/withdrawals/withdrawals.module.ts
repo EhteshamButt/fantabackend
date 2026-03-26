@@ -1,15 +1,11 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { WithdrawalsController } from './withdrawals.controller';
 import { WithdrawalsService } from './withdrawals.service';
-import { Withdrawal, WithdrawalSchema } from './withdrawal.schema';
+import { Withdrawal } from './withdrawal.entity';
 
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: Withdrawal.name, schema: WithdrawalSchema },
-    ]),
-  ],
+  imports: [TypeOrmModule.forFeature([Withdrawal])],
   controllers: [WithdrawalsController],
   providers: [WithdrawalsService],
   exports: [WithdrawalsService],

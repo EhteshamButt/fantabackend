@@ -4,12 +4,12 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { User, Role } from '../users/user.schema';
+import { User, Role } from '../users/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { randomBytes } from 'crypto';
@@ -19,7 +19,7 @@ const SALT_ROUNDS = 12;
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectModel(User.name) private userModel: Model<User>,
+    @InjectRepository(User) private userRepo: Repository<User>,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
@@ -27,25 +27,26 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const email = dto.email.toLowerCase().trim();
 
-    const existing = await this.userModel.findOne({ email }).lean();
+    const existing = await this.userRepo.findOne({ where: { email } });
     if (existing) {
       throw new ConflictException('Email already registered');
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
-    const user = await this.userModel.create({
+    const user = this.userRepo.create({
       email,
       password: hashedPassword,
       name: dto.name.trim(),
       role: Role.USER,
     });
+    await this.userRepo.save(user);
 
     const tokens = await this.generateTokens(user);
-    await this.storeRefreshToken(user._id.toString(), tokens.refreshToken);
+    await this.storeRefreshToken(user.id, tokens.refreshToken);
 
     return {
-      user: { id: user._id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
       ...tokens,
     };
   }
@@ -53,7 +54,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const email = dto.email.toLowerCase().trim();
 
-    const user = await this.userModel.findOne({ email });
+    const user = await this.userRepo.findOne({ where: { email } });
 
     if (!user) {
       await bcrypt.hash('dummy', SALT_ROUNDS);
@@ -66,10 +67,10 @@ export class AuthService {
     }
 
     const tokens = await this.generateTokens(user);
-    await this.storeRefreshToken(user._id.toString(), tokens.refreshToken);
+    await this.storeRefreshToken(user.id, tokens.refreshToken);
 
     return {
-      user: { id: user._id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
       ...tokens,
     };
   }
@@ -88,7 +89,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const user = await this.userModel.findById(payload.sub);
+    const user = await this.userRepo.findOne({ where: { id: payload.sub } });
 
     if (!user || !user.refresh_token) {
       throw new UnauthorizedException('Invalid refresh token');
@@ -96,72 +97,68 @@ export class AuthService {
 
     const isValid = await bcrypt.compare(refreshToken, user.refresh_token);
     if (!isValid) {
-      await this.userModel.findByIdAndUpdate(user._id, { refresh_token: null });
+      await this.userRepo.update(user.id, { refresh_token: null });
       throw new UnauthorizedException('Token reuse detected');
     }
 
     const tokens = await this.generateTokens(user);
-    await this.storeRefreshToken(user._id.toString(), tokens.refreshToken);
+    await this.storeRefreshToken(user.id, tokens.refreshToken);
 
     return {
-      user: { id: user._id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
       ...tokens,
     };
   }
 
   async logout(userId: string) {
-    await this.userModel.findByIdAndUpdate(userId, { refresh_token: null });
+    await this.userRepo.update(userId, { refresh_token: null });
     return { message: 'Logged out successfully' };
   }
 
   async getProfile(userId: string) {
-    const user = await this.userModel
-      .findById(userId)
-      .select('email name role createdAt')
-      .lean();
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'name', 'role', 'createdAt'],
+    });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-    return { id: user._id, ...user };
-  }
-
-  async getAllUsers() {
-    return this.userModel
-      .find()
-      .select('email name role createdAt')
-      .sort({ createdAt: -1 })
-      .lean();
-  }
-
-  async updateUserRole(userId: string, role: Role) {
-    const user = await this.userModel
-      .findByIdAndUpdate(userId, { role }, { new: true })
-      .select('email name role createdAt')
-      .lean();
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
     return user;
   }
 
-  private async generateTokens(user: any) {
-    const id = user._id.toString();
+  async getAllUsers() {
+    return this.userRepo.find({
+      select: ['id', 'email', 'name', 'role', 'createdAt'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async updateUserRole(userId: string, role: Role) {
+    const result = await this.userRepo.update(userId, { role });
+    if (result.affected === 0) {
+      throw new NotFoundException('User not found');
+    }
+    return this.userRepo.findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'name', 'role', 'createdAt'],
+    });
+  }
+
+  private async generateTokens(user: User) {
     const jti = randomBytes(16).toString('hex');
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
-        { sub: id, email: user.email, role: user.role, jti },
+        { sub: user.id, email: user.email, role: user.role, jti },
         {
           secret: this.configService.get<string>('ACCESS_TOKEN_SECRET'),
           expiresIn: (this.configService.get<string>('JWT_EXPIRATION') || '15m') as any,
         },
       ),
       this.jwtService.signAsync(
-        { sub: id, type: 'refresh' },
+        { sub: user.id, type: 'refresh' },
         {
           secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
           expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRATION') || '7d') as any,
@@ -174,6 +171,6 @@ export class AuthService {
 
   private async storeRefreshToken(userId: string, refreshToken: string) {
     const hashedToken = await bcrypt.hash(refreshToken, 10);
-    await this.userModel.findByIdAndUpdate(userId, { refresh_token: hashedToken });
+    await this.userRepo.update(userId, { refresh_token: hashedToken });
   }
 }

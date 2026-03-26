@@ -1,19 +1,13 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
-import { User, UserSchema } from '../users/user.schema';
-import { Payment, PaymentSchema } from '../payments/payment.schema';
-import { Withdrawal, WithdrawalSchema } from '../withdrawals/withdrawal.schema';
+import { User } from '../users/user.entity';
+import { Payment } from '../payments/payment.entity';
+import { Withdrawal } from '../withdrawals/withdrawal.entity';
 
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
-      { name: Payment.name, schema: PaymentSchema },
-      { name: Withdrawal.name, schema: WithdrawalSchema },
-    ]),
-  ],
+  imports: [TypeOrmModule.forFeature([User, Payment, Withdrawal])],
   controllers: [AdminController],
   providers: [AdminService],
 })

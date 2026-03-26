@@ -1,6 +1,6 @@
 import { IsEnum, IsNotEmpty, IsNumber, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { WithdrawalMethod } from '../withdrawal.schema';
+import { WithdrawalMethod } from '../withdrawal.entity';
 
 export class CreateWithdrawalDto {
   @IsEnum(WithdrawalMethod)

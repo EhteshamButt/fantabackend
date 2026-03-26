@@ -17,7 +17,7 @@ import { SubmitPaymentDto } from './dto/submit-payment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '../users/user.schema';
+import { Role } from '../users/user.entity';
 
 @Controller('payments')
 export class PaymentsController {

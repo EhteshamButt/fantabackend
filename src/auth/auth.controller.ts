@@ -19,7 +19,7 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
-import { Role } from '../users/user.schema';
+import { Role } from '../users/user.entity';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
