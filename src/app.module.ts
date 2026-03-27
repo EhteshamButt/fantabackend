@@ -10,9 +10,11 @@ import { AuthModule } from './auth/auth.module';
 import { PaymentsModule } from './payments/payments.module';
 import { AdminModule } from './admin/admin.module';
 import { WithdrawalsModule } from './withdrawals/withdrawals.module';
+import { ReferralSettingsModule } from './referral-settings/referral-settings.module';
 import { User } from './users/user.entity';
 import { Payment } from './payments/payment.entity';
 import { Withdrawal } from './withdrawals/withdrawal.entity';
+import { ReferralSetting } from './referral-settings/referral-setting.entity';
 
 @Module({
   imports: [
@@ -27,7 +29,7 @@ import { Withdrawal } from './withdrawals/withdrawal.entity';
         username: config.get<string>('DB_USERNAME'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
-        entities: [User, Payment, Withdrawal],
+        entities: [User, Payment, Withdrawal, ReferralSetting],
         synchronize: true,
         ssl: config.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
       }),
@@ -39,6 +41,7 @@ import { Withdrawal } from './withdrawals/withdrawal.entity';
     PaymentsModule,
     AdminModule,
     WithdrawalsModule,
+    ReferralSettingsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
