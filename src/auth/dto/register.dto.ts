@@ -1,6 +1,7 @@
 import {
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
   MinLength,
   MaxLength,
@@ -25,4 +26,8 @@ export class RegisterDto {
   @IsNotEmpty()
   @MaxLength(100)
   name: string;
+
+  @IsString()
+  @IsOptional()
+  referralCode?: string;
 }

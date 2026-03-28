@@ -34,11 +34,27 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
+    // Generate unique referral code for this user
+    const referralCode = randomBytes(4).toString('hex').toUpperCase();
+
+    // Link referrer if referral code provided
+    let referredBy: string | null = null;
+    if (dto.referralCode) {
+      const referrer = await this.userRepo.findOne({
+        where: { referralCode: dto.referralCode },
+      });
+      if (referrer) {
+        referredBy = referrer.id;
+      }
+    }
+
     const user = this.userRepo.create({
       email,
       password: hashedPassword,
       name: dto.name.trim(),
       role: Role.USER,
+      referralCode,
+      referredBy,
     });
     await this.userRepo.save(user);
 
@@ -118,7 +134,7 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      select: ['id', 'email', 'name', 'role', 'createdAt'],
+      select: ['id', 'email', 'name', 'role', 'referralCode', 'walletBalance', 'createdAt'],
     });
 
     if (!user) {
