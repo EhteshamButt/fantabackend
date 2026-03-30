@@ -52,6 +52,7 @@ export class AuthService {
       email,
       password: hashedPassword,
       name: dto.name.trim(),
+      phone: dto.phone?.trim() || null,
       role: Role.USER,
       referralCode,
       referredBy,

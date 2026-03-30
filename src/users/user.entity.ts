@@ -28,6 +28,9 @@ export class User {
   @Column()
   name: string;
 
+  @Column({ type: 'varchar', nullable: true, default: null })
+  phone: string | null;
+
   @Column({ type: 'enum', enum: Role, default: Role.USER })
   role: Role;
 
