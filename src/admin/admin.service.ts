@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual, In } from 'typeorm';
-import { User } from '../users/user.entity';
+import { Role, User } from '../users/user.entity';
 import { Payment, PaymentStatus } from '../payments/payment.entity';
 import { Withdrawal, WithdrawalStatus } from '../withdrawals/withdrawal.entity';
 import { ReferralSettingsService } from '../referral-settings/referral-settings.service';
@@ -107,9 +107,12 @@ export class AdminService {
     payment.status = status;
     await this.paymentRepo.save(payment);
 
-    // Credit referral commission when a payment is approved
+    // On first-time approval from pending, set user role to client and credit referral commission
     if (wasPending && status === PaymentStatus.APPROVED) {
-      await this.creditReferralCommission(payment.userId, payment.amount);
+      await Promise.all([
+        this.userRepo.update(payment.userId, { role: Role.CLIENT }),
+        this.creditReferralCommission(payment.userId, payment.amount),
+      ]);
     }
 
     return payment;

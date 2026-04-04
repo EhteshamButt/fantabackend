@@ -4,11 +4,13 @@ import { Repository, MoreThanOrEqual } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { Withdrawal, WithdrawalStatus } from './withdrawal.entity';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
+import { Role, User } from '../users/user.entity';
 
 @Injectable()
 export class WithdrawalsService {
   constructor(
     @InjectRepository(Withdrawal) private withdrawalRepo: Repository<Withdrawal>,
+    @InjectRepository(User) private userRepo: Repository<User>,
   ) {}
 
   async createWithdrawal(userId: string, dto: CreateWithdrawalDto) {
@@ -55,10 +57,23 @@ export class WithdrawalsService {
   }
 
   async updateWithdrawalStatus(id: string, status: WithdrawalStatus) {
-    const result = await this.withdrawalRepo.update(id, { status });
-    if (result.affected === 0) {
+    const withdrawal = await this.withdrawalRepo.findOne({
+      where: { id },
+      relations: ['user'],
+    });
+    if (!withdrawal) {
       throw new NotFoundException('Withdrawal not found');
     }
+
+    const wasPending = withdrawal.status === WithdrawalStatus.PENDING;
+    withdrawal.status = status;
+    await this.withdrawalRepo.save(withdrawal);
+
+    // When a withdrawal is approved from pending, set the user's role to client
+    if (wasPending && status === WithdrawalStatus.APPROVED) {
+      await this.userRepo.update(withdrawal.userId, { role: Role.CLIENT });
+    }
+
     return this.withdrawalRepo.findOne({
       where: { id },
       relations: ['user'],
