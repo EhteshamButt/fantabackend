@@ -22,7 +22,7 @@ export async function bootstrap() {
   app.enableCors({
     origin: ['http://localhost:3000', 'https://fantafrontend.vercel.app'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'Origin'],
     exposedHeaders: ['Set-Cookie'],
     credentials: true,
   });
