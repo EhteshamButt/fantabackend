@@ -23,8 +23,9 @@ import { Role } from '../users/user.entity';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  // Cross-site cookies require SameSite=None and Secure=true
+  secure: true,
+  sameSite: 'none' as const,
   path: '/',
 };
 
