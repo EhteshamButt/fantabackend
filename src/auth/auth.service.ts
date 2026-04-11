@@ -135,7 +135,7 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      select: ['id', 'email', 'name', 'role', 'referralCode', 'walletBalance', 'createdAt'],
+      select: ['id', 'email', 'name', 'phone', 'role', 'referralCode', 'walletBalance', 'level', 'dailyLimit', 'createdAt'],
     });
 
     if (!user) {
@@ -143,6 +143,26 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async getTeam(userId: string) {
+    const members = await this.userRepo.find({
+      where: { referredBy: userId },
+      select: ['id', 'email', 'name', 'level', 'createdAt'],
+      order: { createdAt: 'DESC' },
+    });
+
+    const count = members.length;
+    const thresholds = [3, 15, 45, 75, 170, 260, 350, 400, 435, 500, 800, 1000];
+    let calculatedLevel = 0;
+    for (let i = 0; i < thresholds.length; i++) {
+      if (count >= thresholds[i]) calculatedLevel = i + 1;
+      else break;
+    }
+
+    await this.userRepo.update(userId, { level: calculatedLevel });
+
+    return { members, totalCount: count, calculatedLevel };
   }
 
   async getAllUsers() {

@@ -50,6 +50,12 @@ export class User {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   walletBalance: number;
 
+  @Column({ type: 'int', default: 1 })
+  level: number;
+
+  @Column({ type: 'int', default: 0 })
+  dailyLimit: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -107,6 +107,13 @@ export class AuthController {
     return this.authService.getProfile(req.user.id);
   }
 
+  @Get('team')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.USER, Role.CLIENT)
+  async getTeam(@Req() req: any) {
+    return this.authService.getTeam(req.user.id);
+  }
+
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
