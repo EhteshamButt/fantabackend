@@ -50,7 +50,7 @@ export class User {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   walletBalance: number;
 
-  @Column({ type: 'int', default: 1 })
+  @Column({ type: 'int', default: 0 })
   level: number;
 
   @Column({ type: 'int', default: 0 })
