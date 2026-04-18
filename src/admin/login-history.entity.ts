@@ -20,19 +20,19 @@ export class LoginHistory {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true, default: null })
   ip: string | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, default: null })
   userAgent: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true, default: null })
   browser: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true, default: null })
   os: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true, default: null })
   location: string | null;
 
   @CreateDateColumn()
