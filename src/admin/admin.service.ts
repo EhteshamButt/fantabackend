@@ -173,7 +173,7 @@ export class AdminService {
     if (userIds.length === 0) return [];
     return this.userRepo.find({
       where: { id: In(userIds) },
-      select: ['id', 'name', 'email', 'role', 'createdAt'],
+      select: ['id', 'name', 'email', 'phone', 'role', 'walletBalance', 'level', 'dailyLimit', 'referralCode', 'createdAt'],
       order: { createdAt: 'DESC' },
     });
   }
