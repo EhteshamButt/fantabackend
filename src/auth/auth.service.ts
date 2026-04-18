@@ -122,16 +122,14 @@ export class AuthService {
 
     // Record login history
     const { browser, os } = parseUserAgent(userAgent || '');
-    await this.loginHistoryRepo.save(
-      this.loginHistoryRepo.create({
-        userId: user.id,
-        ip: ip || null,
-        userAgent: userAgent || null,
-        browser,
-        os,
-        location: null,
-      }),
-    );
+    const loginRecord = new LoginHistory();
+    loginRecord.userId = user.id;
+    loginRecord.ip = ip || null;
+    loginRecord.userAgent = userAgent || null;
+    loginRecord.browser = browser;
+    loginRecord.os = os;
+    loginRecord.location = null;
+    await this.loginHistoryRepo.save(loginRecord);
 
     return {
       user: { id: user.id, email: user.email, name: user.name, role: user.role },
