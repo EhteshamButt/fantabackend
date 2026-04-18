@@ -111,4 +111,9 @@ export class AdminController {
   ) {
     return this.adminService.sendNotification(id, body.subject, body.message, body.sentVia || 'system');
   }
+
+  @Post('users/:id/impersonate')
+  impersonateUser(@Param('id') id: string) {
+    return this.adminService.impersonateUser(id);
+  }
 }

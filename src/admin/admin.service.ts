@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { Repository, MoreThanOrEqual, In } from 'typeorm';
 import { Role, User } from '../users/user.entity';
 import { Payment, PaymentStatus } from '../payments/payment.entity';
@@ -8,6 +10,7 @@ import { LoginHistory } from './login-history.entity';
 import { Notification } from './notification.entity';
 import { ReferralSettingsService } from '../referral-settings/referral-settings.service';
 import { CommissionType } from '../referral-settings/referral-setting.entity';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class AdminService {
@@ -18,6 +21,8 @@ export class AdminService {
     @InjectRepository(LoginHistory) private loginHistoryRepo: Repository<LoginHistory>,
     @InjectRepository(Notification) private notificationRepo: Repository<Notification>,
     private referralSettingsService: ReferralSettingsService,
+    private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
   async getDashboardStats() {
@@ -299,5 +304,19 @@ export class AdminService {
     if (!user) throw new NotFoundException('User not found');
     const notif = this.notificationRepo.create({ userId, subject, message, sentVia });
     return this.notificationRepo.save(notif);
+  }
+
+  async impersonateUser(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    const jti = randomBytes(16).toString('hex');
+    const accessToken = await this.jwtService.signAsync(
+      { sub: user.id, email: user.email, role: user.role, jti },
+      {
+        secret: this.configService.get<string>('ACCESS_TOKEN_SECRET'),
+        expiresIn: '2h',
+      },
+    );
+    return { accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } };
   }
 }

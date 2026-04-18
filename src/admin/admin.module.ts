@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule } from '@nestjs/config';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { User } from '../users/user.entity';
@@ -13,6 +15,8 @@ import { ReferralSettingsModule } from '../referral-settings/referral-settings.m
   imports: [
     TypeOrmModule.forFeature([User, Payment, Withdrawal, LoginHistory, Notification]),
     ReferralSettingsModule,
+    ConfigModule,
+    JwtModule.register({}),
   ],
   controllers: [AdminController],
   providers: [AdminService],
