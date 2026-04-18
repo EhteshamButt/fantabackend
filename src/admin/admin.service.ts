@@ -4,6 +4,8 @@ import { Repository, MoreThanOrEqual, In } from 'typeorm';
 import { Role, User } from '../users/user.entity';
 import { Payment, PaymentStatus } from '../payments/payment.entity';
 import { Withdrawal, WithdrawalStatus } from '../withdrawals/withdrawal.entity';
+import { LoginHistory } from './login-history.entity';
+import { Notification } from './notification.entity';
 import { ReferralSettingsService } from '../referral-settings/referral-settings.service';
 import { CommissionType } from '../referral-settings/referral-setting.entity';
 
@@ -13,6 +15,8 @@ export class AdminService {
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
     @InjectRepository(Withdrawal) private withdrawalRepo: Repository<Withdrawal>,
+    @InjectRepository(LoginHistory) private loginHistoryRepo: Repository<LoginHistory>,
+    @InjectRepository(Notification) private notificationRepo: Repository<Notification>,
     private referralSettingsService: ReferralSettingsService,
   ) {}
 
@@ -197,5 +201,103 @@ export class AdminService {
       relations: ['user'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async getUserDetail(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const [deposits, withdrawals, teamCount] = await Promise.all([
+      this.paymentRepo.find({ where: { userId, status: PaymentStatus.APPROVED }, order: { createdAt: 'DESC' } }),
+      this.withdrawalRepo.find({ where: { userId }, order: { createdAt: 'DESC' } }),
+      this.userRepo.count({ where: { referredBy: userId } }),
+    ]);
+
+    const totalDeposited = deposits.reduce((s, p) => s + parseFloat(p.amount.toString()), 0);
+    const totalWithdrawn = withdrawals
+      .filter((w) => w.status === WithdrawalStatus.APPROVED)
+      .reduce((s, w) => s + parseFloat(w.amount.toString()), 0);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _pw, refresh_token: _rt, ...safeUser } = user as unknown as Record<string, unknown> & { password: string; refresh_token: string };
+
+    return {
+      user: safeUser,
+      stats: {
+        balance: parseFloat(user.walletBalance.toString()),
+        totalDeposited,
+        totalWithdrawn,
+        totalTransactions: deposits.length + withdrawals.length,
+        teamCount,
+      },
+    };
+  }
+
+  async updateUserDetail(
+    userId: string,
+    data: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      level?: number;
+      dailyLimit?: number;
+      referralCode?: string;
+      walletBalance?: number;
+    },
+  ) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    Object.assign(user, data);
+    return this.userRepo.save(user);
+  }
+
+  async adjustBalance(userId: string, amount: number, type: 'add' | 'subtract') {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    const current = parseFloat(user.walletBalance.toString());
+    user.walletBalance = parseFloat(
+      (type === 'add' ? current + amount : Math.max(0, current - amount)).toFixed(2),
+    );
+    await this.userRepo.save(user);
+    return { balance: user.walletBalance };
+  }
+
+  async banUser(userId: string, reason: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    user.isBanned = true;
+    user.banReason = reason;
+    return this.userRepo.save(user);
+  }
+
+  async unbanUser(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    user.isBanned = false;
+    user.banReason = null;
+    return this.userRepo.save(user);
+  }
+
+  async getLoginHistory(userId: string) {
+    return this.loginHistoryRepo.find({
+      where: { userId },
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getNotifications(userId: string) {
+    return this.notificationRepo.find({
+      where: { userId },
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async sendNotification(userId: string, subject: string, message: string, sentVia: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    const notif = this.notificationRepo.create({ userId, subject, message, sentVia });
+    return this.notificationRepo.save(notif);
   }
 }

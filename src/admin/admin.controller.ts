@@ -2,10 +2,12 @@ import {
   Controller,
   Get,
   Patch,
+  Post,
   Param,
   Body,
   Query,
   UseGuards,
+  Put,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
@@ -62,5 +64,51 @@ export class AdminController {
   @Get('users/rejected')
   getRejectedUsers() {
     return this.adminService.getRejectedUsers();
+  }
+
+  @Get('users/:id')
+  getUserDetail(@Param('id') id: string) {
+    return this.adminService.getUserDetail(id);
+  }
+
+  @Put('users/:id')
+  updateUserDetail(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+    return this.adminService.updateUserDetail(id, body as Parameters<typeof this.adminService.updateUserDetail>[1]);
+  }
+
+  @Patch('users/:id/balance')
+  adjustBalance(
+    @Param('id') id: string,
+    @Body() body: { amount: number; type: 'add' | 'subtract' },
+  ) {
+    return this.adminService.adjustBalance(id, body.amount, body.type);
+  }
+
+  @Patch('users/:id/ban')
+  banUser(@Param('id') id: string, @Body() body: { reason: string }) {
+    return this.adminService.banUser(id, body.reason);
+  }
+
+  @Patch('users/:id/unban')
+  unbanUser(@Param('id') id: string) {
+    return this.adminService.unbanUser(id);
+  }
+
+  @Get('users/:id/logins')
+  getLoginHistory(@Param('id') id: string) {
+    return this.adminService.getLoginHistory(id);
+  }
+
+  @Get('users/:id/notifications')
+  getNotifications(@Param('id') id: string) {
+    return this.adminService.getNotifications(id);
+  }
+
+  @Post('users/:id/notifications')
+  sendNotification(
+    @Param('id') id: string,
+    @Body() body: { subject: string; message: string; sentVia?: string },
+  ) {
+    return this.adminService.sendNotification(id, body.subject, body.message, body.sentVia || 'system');
   }
 }

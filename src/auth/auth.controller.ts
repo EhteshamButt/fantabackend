@@ -52,8 +52,10 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const { user, accessToken, refreshToken } = await this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const ip = (req as any).ip || (req as any).headers?.['x-forwarded-for'] || '';
+    const userAgent = (req as any).headers?.['user-agent'] || '';
+    const { user, accessToken, refreshToken } = await this.authService.login(dto, ip, userAgent);
 
     res.cookie('access_token', accessToken, {
       ...COOKIE_OPTIONS,

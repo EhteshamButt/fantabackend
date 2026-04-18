@@ -10,16 +10,50 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User, Role } from '../users/user.entity';
+import { LoginHistory } from '../admin/login-history.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { randomBytes } from 'crypto';
 
 const SALT_ROUNDS = 12;
 
+function parseUserAgent(ua: string): { browser: string; os: string } {
+  const uaLower = ua.toLowerCase();
+  let browser = 'Unknown Browser';
+  let os = 'Unknown OS';
+
+  if (uaLower.includes('mobile') || uaLower.includes('android')) {
+    browser = 'Handheld Browser';
+  } else if (uaLower.includes('chrome')) {
+    browser = 'Chrome';
+  } else if (uaLower.includes('firefox')) {
+    browser = 'Firefox';
+  } else if (uaLower.includes('safari')) {
+    browser = 'Safari';
+  } else if (uaLower.includes('edge')) {
+    browser = 'Edge';
+  }
+
+  if (uaLower.includes('android')) {
+    os = 'Android';
+  } else if (uaLower.includes('iphone') || uaLower.includes('ipad')) {
+    os = 'iOS';
+  } else if (uaLower.includes('windows')) {
+    os = 'Windows';
+  } else if (uaLower.includes('mac')) {
+    os = 'MacOS';
+  } else if (uaLower.includes('linux')) {
+    os = 'Linux';
+  }
+
+  return { browser, os };
+}
+
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
+    @InjectRepository(LoginHistory) private loginHistoryRepo: Repository<LoginHistory>,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
@@ -68,7 +102,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ip?: string, userAgent?: string) {
     const email = dto.email.toLowerCase().trim();
 
     const user = await this.userRepo.findOne({ where: { email } });
@@ -85,6 +119,19 @@ export class AuthService {
 
     const tokens = await this.generateTokens(user);
     await this.storeRefreshToken(user.id, tokens.refreshToken);
+
+    // Record login history
+    const { browser, os } = parseUserAgent(userAgent || '');
+    await this.loginHistoryRepo.save(
+      this.loginHistoryRepo.create({
+        userId: user.id,
+        ip: ip || null,
+        userAgent: userAgent || null,
+        browser,
+        os,
+        location: null,
+      }),
+    );
 
     return {
       user: { id: user.id, email: user.email, name: user.name, role: user.role },

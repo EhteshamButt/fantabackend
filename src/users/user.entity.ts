@@ -56,6 +56,12 @@ export class User {
   @Column({ type: 'int', default: 0 })
   dailyLimit: number;
 
+  @Column({ type: 'boolean', default: false })
+  isBanned: boolean;
+
+  @Column({ type: 'text', nullable: true, default: null })
+  banReason: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
