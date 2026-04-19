@@ -9,11 +9,12 @@ import { Payment } from '../payments/payment.entity';
 import { Withdrawal } from '../withdrawals/withdrawal.entity';
 import { LoginHistory } from './login-history.entity';
 import { Notification } from './notification.entity';
+import { Transaction } from './transaction.entity';
 import { ReferralSettingsModule } from '../referral-settings/referral-settings.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Payment, Withdrawal, LoginHistory, Notification]),
+    TypeOrmModule.forFeature([User, Payment, Withdrawal, LoginHistory, Notification, Transaction]),
     ReferralSettingsModule,
     ConfigModule,
     JwtModule.register({}),

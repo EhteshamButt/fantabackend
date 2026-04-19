@@ -8,6 +8,7 @@ import { Payment, PaymentStatus } from '../payments/payment.entity';
 import { Withdrawal, WithdrawalStatus } from '../withdrawals/withdrawal.entity';
 import { LoginHistory } from './login-history.entity';
 import { Notification } from './notification.entity';
+import { Transaction, TransactionType } from './transaction.entity';
 import { ReferralSettingsService } from '../referral-settings/referral-settings.service';
 import { CommissionType } from '../referral-settings/referral-setting.entity';
 import { randomBytes } from 'crypto';
@@ -20,6 +21,7 @@ export class AdminService {
     @InjectRepository(Withdrawal) private withdrawalRepo: Repository<Withdrawal>,
     @InjectRepository(LoginHistory) private loginHistoryRepo: Repository<LoginHistory>,
     @InjectRepository(Notification) private notificationRepo: Repository<Notification>,
+    @InjectRepository(Transaction) private transactionRepo: Repository<Transaction>,
     private referralSettingsService: ReferralSettingsService,
     private jwtService: JwtService,
     private configService: ConfigService,
@@ -256,7 +258,7 @@ export class AdminService {
     return this.userRepo.save(user);
   }
 
-  async adjustBalance(userId: string, amount: number, type: 'add' | 'subtract') {
+  async adjustBalance(userId: string, amount: number, type: 'add' | 'subtract', remark?: string) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
     const current = parseFloat(user.walletBalance.toString());
@@ -264,7 +266,33 @@ export class AdminService {
       (type === 'add' ? current + amount : Math.max(0, current - amount)).toFixed(2),
     );
     await this.userRepo.save(user);
+
+    // Log the transaction
+    const trxId = randomBytes(6).toString('hex').toUpperCase();
+    await this.transactionRepo.save(
+      this.transactionRepo.create({
+        trxId,
+        userId,
+        type: type === 'add' ? TransactionType.MANUAL_CREDIT : TransactionType.MANUAL_DEBIT,
+        amount,
+        postBalance: user.walletBalance,
+        remark: remark || null,
+      }),
+    );
+
     return { balance: user.walletBalance };
+  }
+
+  async getManualAdditions(page = 1, limit = 100) {
+    const skip = (page - 1) * limit;
+    const [items, total] = await this.transactionRepo.findAndCount({
+      where: { type: TransactionType.MANUAL_CREDIT },
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+      skip,
+      take: limit,
+    });
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async banUser(userId: string, reason: string) {

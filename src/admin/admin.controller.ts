@@ -79,9 +79,17 @@ export class AdminController {
   @Patch('users/:id/balance')
   adjustBalance(
     @Param('id') id: string,
-    @Body() body: { amount: number; type: 'add' | 'subtract' },
+    @Body() body: { amount: number; type: 'add' | 'subtract'; remark?: string },
   ) {
-    return this.adminService.adjustBalance(id, body.amount, body.type);
+    return this.adminService.adjustBalance(id, body.amount, body.type, body.remark);
+  }
+
+  @Get('transactions/manual-additions')
+  getManualAdditions(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.adminService.getManualAdditions(Number(page) || 1, Number(limit) || 100);
   }
 
   @Patch('users/:id/ban')
