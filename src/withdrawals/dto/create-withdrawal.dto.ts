@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsNumber, Min } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { WithdrawalMethod } from '../withdrawal.entity';
 
@@ -11,4 +11,12 @@ export class CreateWithdrawalDto {
   @IsNumber()
   @Min(1)
   amount: number;
+
+  @IsOptional()
+  @IsString()
+  accountName?: string;
+
+  @IsOptional()
+  @IsString()
+  accountNumber?: string;
 }

@@ -20,6 +20,8 @@ export class WithdrawalsService {
       method: dto.method,
       amount: dto.amount,
       trxId,
+      accountName: dto.accountName ?? null,
+      accountNumber: dto.accountNumber ?? null,
       status: WithdrawalStatus.PENDING,
     });
     await this.withdrawalRepo.save(withdrawal);
@@ -28,6 +30,8 @@ export class WithdrawalsService {
       method: withdrawal.method,
       amount: withdrawal.amount,
       trxId: withdrawal.trxId,
+      accountName: withdrawal.accountName,
+      accountNumber: withdrawal.accountNumber,
       status: withdrawal.status,
       createdAt: withdrawal.createdAt,
     };
@@ -36,7 +40,7 @@ export class WithdrawalsService {
   async getUserWithdrawals(userId: string) {
     return this.withdrawalRepo.find({
       where: { userId },
-      select: ['id', 'method', 'amount', 'trxId', 'status', 'createdAt', 'updatedAt'],
+      select: ['id', 'method', 'amount', 'trxId', 'accountName', 'accountNumber', 'status', 'createdAt', 'updatedAt'],
       order: { createdAt: 'DESC' },
     });
   }
