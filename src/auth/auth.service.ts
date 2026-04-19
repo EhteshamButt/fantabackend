@@ -212,7 +212,7 @@ export class AuthService {
 
   async getAllUsers() {
     return this.userRepo.find({
-      select: ['id', 'email', 'name', 'role', 'createdAt'],
+      select: ['id', 'email', 'name', 'phone', 'role', 'walletBalance', 'level', 'dailyLimit', 'createdAt'],
       order: { createdAt: 'DESC' },
     });
   }
