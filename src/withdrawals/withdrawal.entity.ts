@@ -41,10 +41,10 @@ export class Withdrawal {
   @Column({ unique: true })
   trxId: string;
 
-  @Column({ nullable: true, default: null })
+  @Column({ type: 'varchar', nullable: true, default: null })
   accountName: string | null;
 
-  @Column({ nullable: true, default: null })
+  @Column({ type: 'varchar', nullable: true, default: null })
   accountNumber: string | null;
 
   @Column({ type: 'enum', enum: WithdrawalStatus, default: WithdrawalStatus.PENDING })
