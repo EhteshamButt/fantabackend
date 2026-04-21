@@ -51,6 +51,11 @@ export class AdminController {
     return this.adminService.updatePaymentStatus(id, dto.status);
   }
 
+  @Post('payments/:id/trigger-commission')
+  triggerCommission(@Param('id') id: string) {
+    return this.adminService.triggerCommissionForPayment(id);
+  }
+
   @Get('users/approved')
   getApprovedUsers() {
     return this.adminService.getApprovedUsers();

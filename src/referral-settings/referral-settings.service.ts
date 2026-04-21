@@ -16,7 +16,11 @@ export class ReferralSettingsService {
     // Seed defaults if empty
     if (settings.length === 0) {
       const defaults = Object.values(CommissionType).map((type) =>
-        this.settingRepo.create({ type, enabled: true, levels: [] }),
+        this.settingRepo.create({
+          type,
+          enabled: true,
+          levels: type === CommissionType.DEPOSIT ? [{ level: 1, percentage: 25 }] : [],
+        }),
       );
       settings = await this.settingRepo.save(defaults);
     }
@@ -27,7 +31,11 @@ export class ReferralSettingsService {
   async getByType(type: CommissionType): Promise<ReferralSetting> {
     let setting = await this.settingRepo.findOne({ where: { type } });
     if (!setting) {
-      setting = this.settingRepo.create({ type, enabled: true, levels: [] });
+      setting = this.settingRepo.create({
+        type,
+        enabled: true,
+        levels: type === CommissionType.DEPOSIT ? [{ level: 1, percentage: 25 }] : [],
+      });
       setting = await this.settingRepo.save(setting);
     }
     return setting;

@@ -105,6 +105,13 @@ export class AdminService {
     });
   }
 
+  async triggerCommissionForPayment(paymentId: string) {
+    const payment = await this.paymentRepo.findOne({ where: { id: paymentId } });
+    if (!payment) throw new NotFoundException('Payment not found');
+    await this.creditReferralCommission(payment.userId, payment.amount);
+    return { message: 'Commission triggered', paymentId, amount: payment.amount };
+  }
+
   async updatePaymentStatus(paymentId: string, status: PaymentStatus) {
     const payment = await this.paymentRepo.findOne({
       where: { id: paymentId },
@@ -146,8 +153,10 @@ export class AdminService {
       return;
     }
     if (depositSetting.levels.length === 0) {
-      console.log(`[COMMISSION] SKIPPED: no levels configured — go to Admin > Referral Commissions and add Level 1 = 25%`);
-      return;
+      console.log(`[COMMISSION] WARNING: no levels configured, using default 25% Level 1`);
+      depositSetting.levels = [{ level: 1, percentage: 25 }];
+      // Also persist the default so it shows correctly in admin panel
+      await this.referralSettingsService.updateLevels(CommissionType.DEPOSIT, depositSetting.levels);
     }
 
     const amount = parseFloat(depositAmount.toString());
