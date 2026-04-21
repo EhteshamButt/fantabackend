@@ -14,6 +14,12 @@ export class WithdrawalsService {
   ) {}
 
   async createWithdrawal(userId: string, dto: CreateWithdrawalDto) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    const currentBalance = parseFloat(user?.walletBalance?.toString() || '0');
+    if (dto.amount > currentBalance) {
+      throw new BadRequestException('You do not have sufficient balance for withdraw.');
+    }
+
     const previousCount = await this.withdrawalRepo.count({ where: { userId } });
     if (previousCount === 0 && dto.amount !== 50) {
       throw new BadRequestException('First withdrawal must be exactly 50 Rs');
