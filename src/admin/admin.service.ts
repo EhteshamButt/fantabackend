@@ -189,19 +189,12 @@ export class AdminService {
       }
 
       const commission = parseFloat(((amount * levelConfig.percentage) / 100).toFixed(2));
-      const currentBalance = parseFloat(referrer.walletBalance.toString());
-      const newBalance = parseFloat((currentBalance + commission).toFixed(2));
 
-      // Use query builder to atomically increment — avoids full-entity save issues
-      await this.userRepo
-        .createQueryBuilder()
-        .update()
-        .set({ walletBalance: () => `"walletBalance" + ${commission}` })
-        .where('id = :id', { id: referrer.id })
-        .execute();
+      // Atomic increment using TypeORM's built-in increment()
+      await this.userRepo.increment({ id: referrer.id }, 'walletBalance', commission);
 
       console.log(
-        `[COMMISSION] SUCCESS: Level ${levelConfig.level} - ${levelConfig.percentage}% of ${amount} = ${commission} credited to ${referrer.email} (new balance: ~${newBalance})`,
+        `[COMMISSION] SUCCESS: Level ${levelConfig.level} - ${levelConfig.percentage}% of ${amount} = ${commission} credited to referrer ${referrer.email} (id=${referrer.id})`,
       );
 
       currentUserId = referrer.id;
