@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
 import { randomBytes } from 'crypto';
@@ -14,6 +14,16 @@ export class WithdrawalsService {
   ) {}
 
   async createWithdrawal(userId: string, dto: CreateWithdrawalDto) {
+    const previousCount = await this.withdrawalRepo.count({ where: { userId } });
+    const minAmount = previousCount === 0 ? 50 : 500;
+    if (dto.amount < minAmount) {
+      throw new BadRequestException(
+        previousCount === 0
+          ? `Minimum first withdrawal is 50 Rs`
+          : `Minimum withdrawal is 500 Rs`,
+      );
+    }
+
     const trxId = randomBytes(8).toString('hex').toUpperCase();
     const withdrawal = this.withdrawalRepo.create({
       userId,
