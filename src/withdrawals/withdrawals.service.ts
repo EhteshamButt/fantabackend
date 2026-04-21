@@ -15,13 +15,11 @@ export class WithdrawalsService {
 
   async createWithdrawal(userId: string, dto: CreateWithdrawalDto) {
     const previousCount = await this.withdrawalRepo.count({ where: { userId } });
-    const minAmount = previousCount === 0 ? 50 : 500;
-    if (dto.amount < minAmount) {
-      throw new BadRequestException(
-        previousCount === 0
-          ? `Minimum first withdrawal is 50 Rs`
-          : `Minimum withdrawal is 500 Rs`,
-      );
+    if (previousCount === 0 && dto.amount !== 50) {
+      throw new BadRequestException('First withdrawal must be exactly 50 Rs');
+    }
+    if (previousCount > 0 && dto.amount < 500) {
+      throw new BadRequestException('Minimum withdrawal is 500 Rs');
     }
 
     const trxId = randomBytes(8).toString('hex').toUpperCase();
