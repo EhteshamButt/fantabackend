@@ -19,6 +19,7 @@ import { ReferralSetting } from './referral-settings/referral-setting.entity';
 import { GeneralSetting } from './general-settings/general-setting.entity';
 import { LoginHistory } from './admin/login-history.entity';
 import { Notification } from './admin/notification.entity';
+import { Transaction } from './admin/transaction.entity';
 
 @Module({
   imports: [
@@ -33,7 +34,7 @@ import { Notification } from './admin/notification.entity';
         username: config.get<string>('DB_USERNAME'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
-        entities: [User, Payment, Withdrawal, ReferralSetting, GeneralSetting, LoginHistory, Notification],
+        entities: [User, Payment, Withdrawal, ReferralSetting, GeneralSetting, LoginHistory, Notification, Transaction],
         synchronize: true,
         ssl: config.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
       }),
