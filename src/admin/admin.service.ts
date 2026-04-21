@@ -188,15 +188,20 @@ export class AdminService {
         break;
       }
 
-      const commission = (amount * levelConfig.percentage) / 100;
+      const commission = parseFloat(((amount * levelConfig.percentage) / 100).toFixed(2));
       const currentBalance = parseFloat(referrer.walletBalance.toString());
-      referrer.walletBalance = parseFloat(
-        (currentBalance + commission).toFixed(2),
-      );
-      await this.userRepo.save(referrer);
+      const newBalance = parseFloat((currentBalance + commission).toFixed(2));
+
+      // Use query builder to atomically increment — avoids full-entity save issues
+      await this.userRepo
+        .createQueryBuilder()
+        .update()
+        .set({ walletBalance: () => `"walletBalance" + ${commission}` })
+        .where('id = :id', { id: referrer.id })
+        .execute();
 
       console.log(
-        `[COMMISSION] SUCCESS: Level ${levelConfig.level} - ${levelConfig.percentage}% of ${amount} = ${commission} credited to ${referrer.email} (new balance: ${referrer.walletBalance})`,
+        `[COMMISSION] SUCCESS: Level ${levelConfig.level} - ${levelConfig.percentage}% of ${amount} = ${commission} credited to ${referrer.email} (new balance: ~${newBalance})`,
       );
 
       currentUserId = referrer.id;
