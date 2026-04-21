@@ -108,8 +108,44 @@ export class AdminService {
   async triggerCommissionForPayment(paymentId: string) {
     const payment = await this.paymentRepo.findOne({ where: { id: paymentId } });
     if (!payment) throw new NotFoundException('Payment not found');
-    await this.creditReferralCommission(payment.userId, payment.amount);
-    return { message: 'Commission triggered', paymentId, amount: payment.amount };
+
+    const depositor = await this.userRepo.findOne({ where: { id: payment.userId } });
+    if (!depositor?.referredBy) {
+      return { message: 'No referrer found', depositorEmail: depositor?.email, referredBy: depositor?.referredBy };
+    }
+
+    const referrer = await this.userRepo.findOne({ where: { id: depositor.referredBy } });
+    if (!referrer) {
+      return { message: 'Referrer user not found', referredById: depositor.referredBy };
+    }
+
+    const depositSetting = await this.referralSettingsService.getByType(CommissionType.DEPOSIT);
+    if (!depositSetting.enabled) {
+      return { message: 'Commission disabled in settings', enabled: false };
+    }
+
+    const levels = depositSetting.levels?.length ? depositSetting.levels : [{ level: 1, percentage: 25 }];
+    const level1 = levels.sort((a, b) => a.level - b.level)[0];
+    const amount = parseFloat(payment.amount.toString());
+    const commission = parseFloat(((amount * level1.percentage) / 100).toFixed(2));
+
+    const balanceBefore = parseFloat(referrer.walletBalance.toString());
+
+    // Raw SQL — most reliable approach
+    await this.userRepo.manager.query(
+      `UPDATE "users" SET "walletBalance" = "walletBalance" + $1 WHERE id = $2`,
+      [commission, referrer.id],
+    );
+
+    return {
+      message: 'Commission credited',
+      depositor: depositor.email,
+      referrer: referrer.email,
+      referrerId: referrer.id,
+      commission,
+      balanceBefore,
+      balanceAfter: balanceBefore + commission,
+    };
   }
 
   async updatePaymentStatus(paymentId: string, status: PaymentStatus) {
@@ -190,8 +226,11 @@ export class AdminService {
 
       const commission = parseFloat(((amount * levelConfig.percentage) / 100).toFixed(2));
 
-      // Atomic increment using TypeORM's built-in increment()
-      await this.userRepo.increment({ id: referrer.id }, 'walletBalance', commission);
+      // Raw SQL — bypasses TypeORM entity layer entirely
+      await this.userRepo.manager.query(
+        `UPDATE "users" SET "walletBalance" = "walletBalance" + $1 WHERE id = $2`,
+        [commission, referrer.id],
+      );
 
       console.log(
         `[COMMISSION] SUCCESS: Level ${levelConfig.level} - ${levelConfig.percentage}% of ${amount} = ${commission} credited to referrer ${referrer.email} (id=${referrer.id})`,
