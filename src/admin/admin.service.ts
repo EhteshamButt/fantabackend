@@ -134,31 +134,50 @@ export class AdminService {
     userId: string,
     depositAmount: number | string,
   ) {
+    console.log(`[COMMISSION] Starting for userId=${userId} amount=${depositAmount}`);
+
     const depositSetting = await this.referralSettingsService.getByType(
       CommissionType.DEPOSIT,
     );
-    if (!depositSetting.enabled || depositSetting.levels.length === 0) return;
+    console.log(`[COMMISSION] Settings: enabled=${depositSetting.enabled} levels=${JSON.stringify(depositSetting.levels)}`);
+
+    if (!depositSetting.enabled) {
+      console.log(`[COMMISSION] SKIPPED: commission is disabled`);
+      return;
+    }
+    if (depositSetting.levels.length === 0) {
+      console.log(`[COMMISSION] SKIPPED: no levels configured — go to Admin > Referral Commissions and add Level 1 = 25%`);
+      return;
+    }
 
     const amount = parseFloat(depositAmount.toString());
-    if (isNaN(amount) || amount <= 0) return;
+    if (isNaN(amount) || amount <= 0) {
+      console.log(`[COMMISSION] SKIPPED: invalid amount ${depositAmount}`);
+      return;
+    }
 
-    // Sort levels by level number to ensure correct order
     const sortedLevels = [...depositSetting.levels].sort(
       (a, b) => a.level - b.level,
     );
 
-    // Walk up the referral chain
     let currentUserId = userId;
     for (const levelConfig of sortedLevels) {
       const currentUser = await this.userRepo.findOne({
         where: { id: currentUserId },
       });
-      if (!currentUser?.referredBy) break;
+      console.log(`[COMMISSION] currentUser=${currentUser?.email} referredBy=${currentUser?.referredBy}`);
+      if (!currentUser?.referredBy) {
+        console.log(`[COMMISSION] STOPPED: user has no referrer`);
+        break;
+      }
 
       const referrer = await this.userRepo.findOne({
         where: { id: currentUser.referredBy },
       });
-      if (!referrer) break;
+      if (!referrer) {
+        console.log(`[COMMISSION] STOPPED: referrer not found id=${currentUser.referredBy}`);
+        break;
+      }
 
       const commission = (amount * levelConfig.percentage) / 100;
       const currentBalance = parseFloat(referrer.walletBalance.toString());
@@ -168,10 +187,9 @@ export class AdminService {
       await this.userRepo.save(referrer);
 
       console.log(
-        `Referral commission: Level ${levelConfig.level} - ${levelConfig.percentage}% of ${amount} = ${commission} credited to ${referrer.email} (balance: ${referrer.walletBalance})`,
+        `[COMMISSION] SUCCESS: Level ${levelConfig.level} - ${levelConfig.percentage}% of ${amount} = ${commission} credited to ${referrer.email} (new balance: ${referrer.walletBalance})`,
       );
 
-      // Move up to next level
       currentUserId = referrer.id;
     }
   }
