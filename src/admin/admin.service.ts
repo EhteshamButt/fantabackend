@@ -131,9 +131,9 @@ export class AdminService {
 
     const balanceBefore = parseFloat(referrer.walletBalance.toString());
 
-    // Raw SQL — most reliable approach
+    // Raw SQL — most reliable approach, also tracks staffEarning separately
     await this.userRepo.manager.query(
-      `UPDATE "users" SET "walletBalance" = "walletBalance" + $1 WHERE id = $2`,
+      `UPDATE "users" SET "walletBalance" = "walletBalance" + $1, "staffEarning" = "staffEarning" + $1 WHERE id = $2`,
       [commission, referrer.id],
     );
 
@@ -226,9 +226,9 @@ export class AdminService {
 
       const commission = parseFloat(((amount * levelConfig.percentage) / 100).toFixed(2));
 
-      // Raw SQL — bypasses TypeORM entity layer entirely
+      // Raw SQL — bypasses TypeORM entity layer entirely, also tracks staffEarning
       await this.userRepo.manager.query(
-        `UPDATE "users" SET "walletBalance" = "walletBalance" + $1 WHERE id = $2`,
+        `UPDATE "users" SET "walletBalance" = "walletBalance" + $1, "staffEarning" = "staffEarning" + $1 WHERE id = $2`,
         [commission, referrer.id],
       );
 

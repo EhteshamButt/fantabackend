@@ -180,7 +180,7 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      select: ['id', 'email', 'name', 'phone', 'role', 'referralCode', 'walletBalance', 'level', 'dailyLimit', 'createdAt'],
+      select: ['id', 'email', 'name', 'phone', 'role', 'referralCode', 'walletBalance', 'staffEarning', 'level', 'dailyLimit', 'createdAt'],
     });
 
     if (!user) {
