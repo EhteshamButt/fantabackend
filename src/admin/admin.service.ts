@@ -114,12 +114,13 @@ export class AdminService {
       throw new NotFoundException('Payment not found');
     }
 
-    const wasPending = payment.status === PaymentStatus.PENDING;
+    const isBeingApproved = status === PaymentStatus.APPROVED && !payment.commissionPaid;
     payment.status = status;
+    if (isBeingApproved) payment.commissionPaid = true;
     await this.paymentRepo.save(payment);
 
-    // On first-time approval from pending, set user role to client and credit referral commission
-    if (wasPending && status === PaymentStatus.APPROVED) {
+    // Credit referral commission on first-ever approval (regardless of prior status)
+    if (isBeingApproved) {
       await Promise.all([
         this.userRepo.update(payment.userId, { role: Role.CLIENT }),
         this.creditReferralCommission(payment.userId, payment.amount),

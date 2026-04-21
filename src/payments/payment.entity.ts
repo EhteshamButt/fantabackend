@@ -51,6 +51,9 @@ export class Payment {
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
   status: PaymentStatus;
 
+  @Column({ default: false })
+  commissionPaid: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 
